@@ -6,11 +6,13 @@ const rooms = [
     {
         name: 'room1',
         players: [],
+        password: null,
         isPlaying: false
     },
     {
         name: 'room2',
         players: [],
+        password: null,
         isPlaying: false
     }
 ];
@@ -31,6 +33,19 @@ io.on('connection', function(socket) {
         socket.join(room.name);
         io.sockets.in(room.name).emit('connectToRoom', rooms[index]);
     });
+
+    socket.on('createRoom', function(room, player) {
+        let newRoom = {
+            name: room.name,
+            players: [player],
+            password: room.password || null,
+            isPlaying: false
+        }
+        rooms.push(newRoom);
+
+        socket.join(newRoom.name);
+        io.sockets.in(newRoom.name).emit('connectToNewRoom', newRoom);
+    })
 })
 
 http.listen(3000, function() {
