@@ -2,8 +2,10 @@ var app = require('express')();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
-let currentRoom = {}
-let currentPlayer = {}
+let currentRoom = null
+let currentPlayer = null
+let currentGame = null
+let currentRound = 0;
 
 const rooms = [
     {
@@ -28,6 +30,7 @@ app.get('/', function(req, res) {
 
 io.on('connection', function(socket) {
     console.log('user connected')
+    console.log(socket.id)
 
     io.emit('getRooms', rooms);
 
@@ -35,7 +38,7 @@ io.on('connection', function(socket) {
         let index = rooms.findIndex((obj => obj.name == room.name));
         rooms[index].players.push(player)
 
-        currentRoom = room;
+        currentRoom = rooms[index];
         currentPlayer = player;
 
         socket.join(room.name);
@@ -67,9 +70,48 @@ io.on('connection', function(socket) {
         rooms[index].isPlaying = true;
 
         var rand = words[Math.floor(Math.random() * words.length)];
+        
+        if (currentRoom) {
+            let scoreboard = {}
+            let allplayers = currentRoom.players;
+            for (let player in allplayers) {
+                scoreboard[allplayers[player]] = 0
+            }
 
-        io.in(room.name).emit('connectToArena', rand);
+            currentGame = {
+                totalRounds: currentRoom.players.length * 2,
+                currRound: currentRound,
+                currPlayer: currentRoom.players[currentRound],
+                room: currentRoom,
+                scoreboard,
+                onGoingRounds: 0
+            }
+            console.log(currentGame)
+        }
+
+        io.in(room.name).emit('connectToArena', rand, currentGame);
     });
+
+    socket.on('correctWord', function({winner}) {
+        var rand = words[Math.floor(Math.random() * words.length)];
+        if (currentGame) {
+            currentGame.scoreboard[winner] += 100
+            currentGame.currRound += 1
+            currentGame.onGoingRounds += 1
+            if (currentGame.currRound == currentGame.room.players.length) {
+                currentGame.currRound = 0
+            }
+            currentGame.currPlayer = currentGame.room.players[currentGame.currRound]
+
+            console.log('iniii', currentGame)
+
+            if (currentGame.totalRounds === currentGame.onGoingRounds) {
+                io.in(currentRoom.name).emit('endGame', currentGame)
+            } else {
+                io.in(currentRoom.name).emit('latestGameScore', rand, currentGame);
+            }
+        }
+    })
 
     socket.on('leaveRoom', function(room, username){
         let index = rooms.findIndex((obj => obj.name == room.name));
