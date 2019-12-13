@@ -83,6 +83,10 @@ io.on('connection', function(socket) {
         sockets.to(username).emit('backToHome');
     });
 
+    socket.on('drawing', (data) =>{
+        socket.broadcast.emit('drawing',data)
+    })
+
     socket.on('disconnect', function(){
         if (currentRoom && currentPlayer) {
             let index = rooms.findIndex((obj => obj.name == currentRoom.name));
