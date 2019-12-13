@@ -1,6 +1,7 @@
 var app = require('express')();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
+const gameController = require('./game/gameController')
 
 const rooms = [
     {
@@ -56,6 +57,13 @@ io.on('connection', function(socket) {
         })
         rooms[index].players = newPlayers
         sockets.to(username).emit('backToHome');
+    });
+
+// @game room
+    socket.on('startGame', function(room){
+        let index = rooms.findIndex((obj => obj.name == room.name));
+        gameController
+        // sockets.to(username).emit('backToHome');
     });
 
     socket.on('disconnect', function(){
