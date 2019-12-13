@@ -2,6 +2,9 @@ var app = require('express')();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
+let currentRoom = {}
+let currentPlayer = {}
+
 const rooms = [
     {
         name: 'room1',
@@ -17,11 +20,12 @@ const rooms = [
     }
 ];
 
+const words = ['mouth', 'eyes', 'house', 'shoes', 'cat', 'dog', 'house', 'cow'];
+
 app.get('/', function(req, res) {
    res.sendfile('index.html');
 });
 
-var roomno = 1;
 io.on('connection', function(socket) {
     console.log('user connected')
 
@@ -30,6 +34,9 @@ io.on('connection', function(socket) {
     socket.on('joinRoom', function(room, player){
         let index = rooms.findIndex((obj => obj.name == room.name));
         rooms[index].players.push(player)
+
+        currentRoom = room;
+        currentPlayer = player;
 
         socket.join(room.name);
         io.sockets.in(room.name).emit('connectToRoom', rooms[index]);
@@ -44,20 +51,24 @@ io.on('connection', function(socket) {
         }
         rooms.push(newRoom);
 
+        currentRoom = newRoom;
+        currentPlayer = player;
+
         socket.join(newRoom.name);
         io.sockets.in(newRoom.name).emit('connectToNewRoom', newRoom);
     })
-    socket.on('recieveMessage', function({ username, room, message }) {
-        console.log(2)
-        // io.sockets.in(room).emit('publishMessage', { username, message })
-        socket.broadcast.to(room).emit('publishMessage', { username, message })
+
+    socket.on('receiveMessage', function({ username, room, message }) {
+        io.in(room.name).emit('publishMessage',  { username, message });
     })
 
     socket.on('joinArena', function(room){
         let index = rooms.findIndex((obj => obj.name == room.name));
         rooms[index].isPlaying = true;
 
-        io.sockets.in(room.name).emit('connectToArena');
+        var rand = words[Math.floor(Math.random() * words.length)];
+
+        io.in(room.name).emit('connectToArena', rand);
     });
 
     socket.on('leaveRoom', function(room, username){
@@ -73,7 +84,14 @@ io.on('connection', function(socket) {
     });
 
     socket.on('disconnect', function(){
-        console.log('user disconnected')
+        if (currentRoom && currentPlayer) {
+            let index = rooms.findIndex((obj => obj.name == currentRoom.name));
+            let room = rooms[index];
+            let filtered = room.players.filter(function(e) { return e !== currentPlayer })
+            rooms[index].players = filtered;
+            currentRoom = null;
+            currentPlayer = null;
+        }
     });
 })
 
